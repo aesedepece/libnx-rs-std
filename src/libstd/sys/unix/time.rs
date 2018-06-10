@@ -177,7 +177,58 @@ mod inner {
             }
         }
     }
+    // The initial system tick after which all Instants occur
+    static mut TICK: u64 = 0;
 
+    // A source of monotonic time based on ticks of the 3DS CPU. Returns the
+    // number of system ticks elapsed since an arbitrary point in the past
+    fn ctr_absolute_time() -> u64 {
+        let first_tick = get_first_tick();
+        let current_tick = get_system_tick();
+        current_tick - first_tick
+    }
+
+    // The first time this function is called, it generates and returns the
+    // initial system tick used to create Instants
+    //
+    // subsequent calls to this function return the previously generated
+    // tick value
+    fn get_first_tick() -> u64 {
+        static ONCE: Once = Once::new();
+        unsafe { 
+            ONCE.call_once(|| {
+                TICK = get_system_tick();
+            });
+            TICK
+        }
+    }
+
+    // Gets the current system tick
+    #[inline]
+    fn get_system_tick() -> u64 {
+        unsafe { libctru::svcGetSystemTick() }
+    }
+
+    // A struct representing the clock speed of the 3DS
+    struct CtrClockInfo {
+        numer: u32,
+        denom: u32,
+    }
+
+    // Initializes the CtrClockInfo struct
+    //
+    // Note that svcGetSystemTick always runs at 268MHz (268,111,856Hz), even
+    // on a New 3DS running in 804MHz mode
+    //
+    // See https://www.3dbrew.org/wiki/Hardware#Common_hardware
+    fn info() -> &'static CtrClockInfo {
+        static INFO: CtrClockInfo = CtrClockInfo {
+            numer: 1_000_000_000,
+            denom: 268_111_856,
+        };
+        &INFO
+    }
+    
     impl SystemTime {
         pub fn now() -> SystemTime {
             use ptr;
