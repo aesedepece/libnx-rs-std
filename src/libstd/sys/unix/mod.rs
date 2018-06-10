@@ -13,7 +13,7 @@
 use io::{self, ErrorKind};
 use libc;
 
-#[cfg(any(dox, target_os = "linux"))] pub use os::linux as platform;
+#[cfg(any(dox, target_os = "linux", target_os = "horizon"))] pub use os::linux as platform;
 
 #[cfg(all(not(dox), target_os = "android"))]   pub use os::android as platform;
 #[cfg(all(not(dox), target_os = "bitrig"))]    pub use os::bitrig as platform;
