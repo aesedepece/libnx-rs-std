@@ -674,7 +674,7 @@ pub trait DirEntryExt {
 
 #[stable(feature = "dir_entry_ext", since = "1.1.0")]
 impl DirEntryExt for fs::DirEntry {
-    fn ino(&self) -> u64 { self.as_inner().ino() }
+    fn ino(&self) -> u64 { 0u64 }
 }
 
 /// Creates a new symbolic link on the filesystem.
