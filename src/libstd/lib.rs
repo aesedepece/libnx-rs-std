@@ -522,35 +522,6 @@ mod memchr;
 // compiler
 pub mod rt;
 
-// Pull in the the `stdsimd` crate directly into libstd. This is the same as
-// libcore's arch/simd modules where the source of truth here is in a different
-// repository, but we pull things in here manually to get it into libstd.
-//
-// Note that the #[cfg] here is intended to do two things. First it allows us to
-// change the rustc implementation of intrinsics in stage0 by not compiling simd
-// intrinsics in stage0. Next it doesn't compile anything in test mode as
-// stdsimd has tons of its own tests which we don't want to run.
-#[path = "../stdsimd/stdsimd/mod.rs"]
-#[allow(missing_debug_implementations, missing_docs, dead_code)]
-#[unstable(feature = "stdsimd", issue = "48556")]
-#[cfg(all(not(stage0), not(test)))]
-mod stdsimd;
-
-// A "fake" module needed by the `stdsimd` module to compile, not actually
-// exported though.
-#[cfg(not(stage0))]
-mod coresimd {
-    pub use core::arch;
-    pub use core::simd;
-}
-
-#[unstable(feature = "stdsimd", issue = "48556")]
-#[cfg(all(not(stage0), not(test)))]
-pub use stdsimd::simd;
-#[stable(feature = "simd_arch", since = "1.27.0")]
-#[cfg(all(not(stage0), not(test)))]
-pub use stdsimd::arch;
-
 // Include a number of private modules that exist solely to provide
 // the rustdoc documentation for primitive types. Using `include!`
 // because rustdoc only looks for these modules at the crate level.
