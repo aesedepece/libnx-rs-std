@@ -154,6 +154,12 @@ impl FileDesc {
         }
     }
 
+    // We don't have fork/exec on the 3DS, so this shouldn't need to do anything
+    #[cfg(target_os = "horizon")]
+    pub fn set_cloexec(&self) -> io::Result<()> {
+        Ok(())
+    }
+
     #[cfg(target_os = "linux")]
     pub fn get_cloexec(&self) -> io::Result<bool> {
         unsafe {
