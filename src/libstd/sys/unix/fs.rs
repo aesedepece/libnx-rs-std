@@ -138,14 +138,14 @@ impl FileAttr {
     pub fn modified(&self) -> io::Result<SystemTime> {
         Ok(SystemTime::from(libc::timespec {
             tv_sec: self.stat.st_mtime as libc::time_t,
-            tv_nsec: self.stat.st_mtime_nsec as _,
+            tv_nsec: 0 as _,
         }))
     }
 
     pub fn accessed(&self) -> io::Result<SystemTime> {
         Ok(SystemTime::from(libc::timespec {
             tv_sec: self.stat.st_atime as libc::time_t,
-            tv_nsec: self.stat.st_atime_nsec as _,
+            tv_nsec: 0 as _,
         }))
     }
 
@@ -239,7 +239,7 @@ impl Iterator for ReadDir {
                     }
                 }
 
-                let name = (*entry_ptr).d_name.as_ptr();
+                let name = (*entry_ptr).d_name.as_ptr() as *const u8;
                 let namelen = libc::strlen(name) as usize;
 
                 let ret = DirEntry {
@@ -300,7 +300,7 @@ impl DirEntry {
         let mut stat: stat64 = unsafe { mem::zeroed() };
         cvt(unsafe {
             fstatat(fd,
-                    self.entry.d_name.as_ptr(),
+                    self.entry.d_name.as_ptr() as *const u8,
                     &mut stat as *mut _ as *mut _,
                     libc::AT_SYMLINK_NOFOLLOW)
         })?;
@@ -362,7 +362,7 @@ impl DirEntry {
               target_os = "bitrig"))]
     fn name_bytes(&self) -> &[u8] {
         unsafe {
-            ::slice::from_raw_parts(self.entry.d_name.as_ptr() as *const u8,
+            ::slice::from_raw_parts(self.entry.d_name.as_ptr() as *const u8 as *const u8,
                                     self.entry.d_namlen as usize)
         }
     }
@@ -370,10 +370,11 @@ impl DirEntry {
               target_os = "linux",
               target_os = "emscripten",
               target_os = "l4re",
-              target_os = "haiku"))]
+              target_os = "haiku",
+              target_os = "horizon"))]
     fn name_bytes(&self) -> &[u8] {
         unsafe {
-            CStr::from_ptr(self.entry.d_name.as_ptr()).to_bytes()
+            CStr::from_ptr(self.entry.d_name.as_ptr() as *const i8).to_bytes()
         }
     }
     #[cfg(any(target_os = "solaris",
@@ -455,7 +456,7 @@ impl File {
                     opts.get_creation_mode()? |
                     (opts.custom_flags as c_int & !libc::O_ACCMODE);
         let fd = cvt_r(|| unsafe {
-            open64(path.as_ptr(), flags, opts.mode as c_int)
+            open64(path.as_ptr() as *const u8, flags, opts.mode as c_int)
         })?;
         let fd = FileDesc::new(fd);
 
@@ -598,7 +599,7 @@ impl DirBuilder {
 
     pub fn mkdir(&self, p: &Path) -> io::Result<()> {
         let p = cstr(p)?;
-        cvt(unsafe { libc::mkdir(p.as_ptr(), self.mode) })?;
+        cvt(unsafe { libc::mkdir(p.as_ptr() as *const u8, self.mode) })?;
         Ok(())
     }
 
@@ -634,7 +635,7 @@ impl fmt::Debug for File {
             // alternatives. If a better method is invented, it should be used
             // instead.
             let mut buf = vec![0;libc::PATH_MAX as usize];
-            let n = unsafe { libc::fcntl(fd, libc::F_GETPATH, buf.as_ptr()) };
+            let n = unsafe { libc::fcntl(fd, libc::F_GETPATH, buf.as_ptr() as *const u8) };
             if n == -1 {
                 return None;
             }
@@ -687,7 +688,7 @@ pub fn readdir(p: &Path) -> io::Result<ReadDir> {
     let root = p.to_path_buf();
     let p = cstr(p)?;
     unsafe {
-        let ptr = libc::opendir(p.as_ptr());
+        let ptr = libc::opendir(p.as_ptr() as *const u8);
         if ptr.is_null() {
             Err(Error::last_os_error())
         } else {
@@ -699,26 +700,26 @@ pub fn readdir(p: &Path) -> io::Result<ReadDir> {
 
 pub fn unlink(p: &Path) -> io::Result<()> {
     let p = cstr(p)?;
-    cvt(unsafe { libc::unlink(p.as_ptr()) })?;
+    cvt(unsafe { libc::unlink(p.as_ptr() as *const u8) })?;
     Ok(())
 }
 
 pub fn rename(old: &Path, new: &Path) -> io::Result<()> {
     let old = cstr(old)?;
     let new = cstr(new)?;
-    cvt(unsafe { libc::rename(old.as_ptr(), new.as_ptr()) })?;
+    cvt(unsafe { libc::rename(old.as_ptr() as *const u8, new.as_ptr() as *const u8) })?;
     Ok(())
 }
 
 pub fn set_perm(p: &Path, perm: FilePermissions) -> io::Result<()> {
     let p = cstr(p)?;
-    cvt_r(|| unsafe { libc::chmod(p.as_ptr(), perm.mode) })?;
+    cvt_r(|| unsafe { libc::chmod(p.as_ptr() as *const u8, perm.mode) })?;
     Ok(())
 }
 
 pub fn rmdir(p: &Path) -> io::Result<()> {
     let p = cstr(p)?;
-    cvt(unsafe { libc::rmdir(p.as_ptr()) })?;
+    cvt(unsafe { libc::rmdir(p.as_ptr() as *const u8) })?;
     Ok(())
 }
 
@@ -745,7 +746,7 @@ fn remove_dir_all_recursive(path: &Path) -> io::Result<()> {
 
 pub fn readlink(p: &Path) -> io::Result<PathBuf> {
     let c_path = cstr(p)?;
-    let p = c_path.as_ptr();
+    let p = c_path.as_ptr() as *const u8;
 
     let mut buf = Vec::with_capacity(256);
 
@@ -772,14 +773,14 @@ pub fn readlink(p: &Path) -> io::Result<PathBuf> {
 pub fn symlink(src: &Path, dst: &Path) -> io::Result<()> {
     let src = cstr(src)?;
     let dst = cstr(dst)?;
-    cvt(unsafe { libc::symlink(src.as_ptr(), dst.as_ptr()) })?;
+    cvt(unsafe { libc::symlink(src.as_ptr() as *const u8, dst.as_ptr() as *const u8) })?;
     Ok(())
 }
 
 pub fn link(src: &Path, dst: &Path) -> io::Result<()> {
     let src = cstr(src)?;
     let dst = cstr(dst)?;
-    cvt(unsafe { libc::link(src.as_ptr(), dst.as_ptr()) })?;
+    cvt(unsafe { libc::link(src.as_ptr() as *const u8, dst.as_ptr() as *const u8) })?;
     Ok(())
 }
 
@@ -787,7 +788,7 @@ pub fn stat(p: &Path) -> io::Result<FileAttr> {
     let p = cstr(p)?;
     let mut stat: stat64 = unsafe { mem::zeroed() };
     cvt(unsafe {
-        stat64(p.as_ptr(), &mut stat as *mut _ as *mut _)
+        stat64(p.as_ptr() as *const u8, &mut stat as *mut _ as *mut _)
     })?;
     Ok(FileAttr { stat: stat })
 }
@@ -796,7 +797,7 @@ pub fn lstat(p: &Path) -> io::Result<FileAttr> {
     let p = cstr(p)?;
     let mut stat: stat64 = unsafe { mem::zeroed() };
     cvt(unsafe {
-        lstat64(p.as_ptr(), &mut stat as *mut _ as *mut _)
+        lstat64(p.as_ptr() as *const u8, &mut stat as *mut _ as *mut _)
     })?;
     Ok(FileAttr { stat: stat })
 }
@@ -805,11 +806,11 @@ pub fn canonicalize(p: &Path) -> io::Result<PathBuf> {
     let path = CString::new(p.as_os_str().as_bytes())?;
     let buf;
     unsafe {
-        let r = libc::realpath(path.as_ptr(), ptr::null_mut());
+        let r = libc::realpath(path.as_ptr() as *const u8, ptr::null_mut());
         if r.is_null() {
             return Err(io::Error::last_os_error())
         }
-        buf = CStr::from_ptr(r).to_bytes().to_vec();
+        buf = CStr::from_ptr(r as *const i8).to_bytes().to_vec();
         libc::free(r as *mut _);
     }
     Ok(PathBuf::from(OsString::from_vec(buf)))
