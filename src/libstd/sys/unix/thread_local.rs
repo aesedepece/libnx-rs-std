@@ -27,7 +27,7 @@ pub unsafe fn set(key: Key, value: *mut u8) {
 
 #[inline]
 pub unsafe fn get(key: Key) -> *mut u8 {
-    () as *mut u8
+    0 as *mut u8
 }
 
 #[inline]
